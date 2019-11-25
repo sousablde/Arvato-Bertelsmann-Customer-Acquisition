@@ -1,6 +1,21 @@
 import numpy as np
 import pandas as pd
 
+#function to fix mixed type columns
+def mixed_type_fixer(df, cols):
+    '''
+    Function to convert mixed type columns to floats
+    ARGS:
+    dataframe: df we need to fix
+    cols: cols in need to be fixed
+    returns:
+    dataframe with fixed columns
+    '''
+    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan})
+    df[cols] = df[cols].astype(float)
+    
+    return df
+
 # creating a function to determine percentage of missing values
 def percentage_of_missing(df):
     '''
