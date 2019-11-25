@@ -11,11 +11,64 @@ def mixed_type_fixer(df, cols):
     returns:
     dataframe with fixed columns
     '''
-    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan})
+    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
     df[cols] = df[cols].astype(float)
     
     return df
 
+#function to check categorical variable counts
+def categorical_checker(df, attributes_df):
+    '''
+    Takes in a feature dataframe and a demographic dataframe and prints the counts for categorical variables
+    Args:
+    df: demographics dataframe
+    attributes_df: dataframe with the summary of all the features
+    returns:
+    nothing
+    '''
+    categorical = attributes_df[attributes_df['type'] == 'categorical']['attribute'].values
+    categorical = [x for x in categorical if x in df.columns] 
+    binary = [x for x in categorical if df[x].nunique()==2]
+    multilevel = [x for x in categorical if df[x].nunique()>2]
+    print(df[categorical].nunique())
+    
+#function to replace missing or unknow values based on the information in the attributes df
+def feat_fixer(df, attributes_df):
+    '''
+    This function takes in any df and the attributes df and replaces missing and unknown values
+    based on the information of the attributes dataframe
+    Args:
+    df: dany dataframe from this project with demo information
+    attributes_df: dataframe with attributes summary
+    returns:
+    dataframe with missing and unknown replaced with nan
+    '''
+    df.replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
+    #parsing unknown and missing values from the attributes dataframe
+    m_o_u_list = [x.replace("[","").replace("]","").split(',') for x in attributes_df['missing_or_unknown']]
+    
+    #changing strings to floats
+    m_o_u_float = []
+    for x in m_o_u_list:
+        #list inside list
+        list_of_list = []
+        for missing in x:
+            try:
+                missing = float(missing)
+                list_of_list.append(missing)
+            except:
+                missing = np.nan
+                list_of_list.append(missing)
+        list_of_list
+                
+        m_o_u_float.append(list_of_list)
+        
+        #replacing the missing and unknown values with nan
+    for col, m_unknown in zip(df.columns, m_o_u_float):
+        for miss in m_unknown:
+            df[col].replace(m_unknown, np.nan, inplace = True)
+        
+    return df
 # creating a function to determine percentage of missing values
 def percentage_of_missing(df):
     '''
