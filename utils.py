@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import collections
 
 #function to fix mixed type columns
 def mixed_type_fixer(df, cols):
@@ -54,7 +55,7 @@ def feat_fixer(df, attributes_df):
         list_of_list = []
         for missing in x:
             try:
-                missing = float(missing)
+                missing = int(missing)
                 list_of_list.append(missing)
             except:
                 missing = np.nan
@@ -67,8 +68,29 @@ def feat_fixer(df, attributes_df):
     for col, m_unknown in zip(df.columns, m_o_u_float):
         for miss in m_unknown:
             df[col].replace(m_unknown, np.nan, inplace = True)
-        
+                 
+                   
     return df
+
+# function to determine if 2 dataframes are balanced in terms of number and type of features
+def balance_checker(df1, df2):
+    '''
+    Takes in 2 dataframes and checks if attributes match
+    '''
+    features_list_df1 = df1.columns.values
+    features_list_df2 = df2.columns.values
+    equal = collections.Counter(features_list_df1) == collections.Counter(features_list_df2)
+    
+    print('Feature balance between dfs?: ', equal)
+    
+    if equal == False:
+        print('Your first argument df differs from the second on the following columns: ')
+        print(set(features_list_df1) - set(features_list_df2))
+        
+        print('Your second argument df differs from the first on the following columns: ')
+        print(set(features_list_df2) - set(features_list_df1))
+        
+        
 # creating a function to determine percentage of missing values
 def percentage_of_missing(df):
     '''
@@ -129,5 +151,16 @@ def row_dropper(df, boundary):
     df = df.dropna(thresh=df.shape[1]-boundary)
     df = df.reset_index()
     del df['index']
+    
+    return df
+
+#function to handle special feature columns
+def special_feature_handler(df):
+    #extract the time,and keep the year for column with date/time information
+    df["EINGEFUEGT_AM"]=pd.to_datetime(df["EINGEFUEGT_AM"]).dt.year
+    
+    #OST_WEST_KZ is a binary feature that needs encoding it takes the values array(['W', 'O'], dtype=object)
+    o_w_k_dict = {'OST_WEST_KZ': {'W':0, 'O':1}}
+    df = df.replace(o_w_k_dict)
     
     return df
