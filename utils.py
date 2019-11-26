@@ -102,6 +102,7 @@ def split_on_percentage(df, boundary, conditional):
     
     return split_df  
 
+#function to delete columns with too much missing data
 def columns_to_delete(df):
     '''
     Fuction goes through dataframe created with split_on_percentage() and saves column names over
@@ -112,3 +113,21 @@ def columns_to_delete(df):
     cols_del = df.index.values.tolist()
     
     return cols_del
+
+#function to delete rows with too much missing data
+def row_dropper(df, boundary):
+    '''
+    This function identifies rows missing more than a threshold amount of data specified with boundary
+    and drops them
+    Args: 
+    dataframe: already cleaned up of columns missing more than a boundary defined percentage 
+    boundary: number of missing entries limit to droppable rows
+    
+    returns:
+    dataframe with dropped rows with more than a percentage of missing values
+    '''
+    df = df.dropna(thresh=df.shape[1]-boundary)
+    df = df.reset_index()
+    del df['index']
+    
+    return df
