@@ -55,7 +55,7 @@ def feat_fixer(df, attributes_df):
         list_of_list = []
         for missing in x:
             try:
-                missing = int(missing)
+                missing = float(missing)
                 list_of_list.append(missing)
             except:
                 missing = np.nan
@@ -164,3 +164,4 @@ def special_feature_handler(df):
     df = df.replace(o_w_k_dict)
     
     return df
+
