@@ -266,6 +266,27 @@ def feat_eng(df):
     
     
     return df
+#function to scale and normalize the dataframes features
+def feature_scaling(df, type_scale):
+    
+    features_list = df.columns
+    
+    #dealing with remaining missing values
+    df.fillna(0, inplace = True)
+    
+    if type_scale == 'StandardScaler':
+        df_scaled = StandardScaler().fit_transform(df)
+        
+    if type_scale == 'RobustScaler':
+        df_scaled = RobustScaler().fit_transform(df)
+        
+    if type_scale == 'MinMaxScaler':
+        df_scaled = MinMaxScaler().fit_transform(df)
+    
+    df_scaled = pd.DataFrame(df_scaled)
+    df_scaled.columns = features_list
+    
+    return df_scaled
 
 #pca model
 def pca_model(df, n_components):
@@ -311,3 +332,49 @@ def scree_plots(SS, RS, MMS, dataname):
     plot = tight_layout()
     plot = plt.show()
 
+#function to help interpret the pca results
+def interpret_pca(df, n_components, component):
+    '''
+    Maps each weight to its corresponding feature name and sorts according to weight.
+    Args:
+        df (dataframe): dataframe on which pca has been used on.
+        pca (pca): pca object.
+        component (int): which principal compenent to return
+    Returns:
+        df_pca (dataframe): dataframe for specified component containing the explained variance
+                            and all features and weights sorted according to weight.
+    '''
+    pca = PCA(n_components)
+    df_pca = pca.fit_transform(df)
+    
+    df_pca = pd.DataFrame(columns=list(df.columns))
+    df_pca.loc[0] = pca.components_[component]
+    dim_index = "Dimension: {}".format(component + 1)
+
+    df_pca.index = [dim_index]
+    df_pca = df_pca.loc[:, df_pca.max().sort_values(ascending=False).index]
+
+    ratio = np.round(pca.explained_variance_ratio_[component], 4)
+    df_pca['Explained Variance'] = ratio
+
+    cols = list(df_pca.columns)
+    cols = cols[-1:] + cols[:-1]
+    df_pca = df_pca[cols]
+
+    return df_pca
+
+#function to display interesting features
+def display_interesting_features(df, pca, dimensions):
+    
+    features = df.columns.values
+    components = pca.components_
+    feature_weights = dict(zip(features, components[dimensions]))
+    sorted_weights = sorted(feature_weights.items(), key = lambda kv: kv[1])
+    
+    print('Lowest: ')
+    for feature, weight, in sorted_weights[:3]:
+        print('\t{:20} {:.3f}'.format(feature, weight))
+    
+    print('Highest: ')
+    for feature, weight in sorted_weights[-3:]:
+        print('\t{:20} {:.3f}'.format(feature, weight))
