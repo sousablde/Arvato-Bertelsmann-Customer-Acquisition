@@ -37,6 +37,9 @@ def mixed_type_fixer(df, cols):
     df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
     df[cols] = df[cols].astype(float)
     
+    #drop the unnamed column
+    df = df.drop(df.columns[0], axis = 1)
+    
     return df
 
 #function to check categorical variable counts
@@ -73,6 +76,28 @@ def balance_checker(df1, df2):
         
         print('Your second argument df differs from the first on the following columns: ')
         print(set(features_list_df2) - set(features_list_df1))
+        
+#function to deal with all the missing and unknown entries
+def unknowns_to_NANs(df, xls):
+    #using the DIAs xls file lets save meanings that might indicate unknown values
+    unknowns = xls['Meaning'].where(xls['Meaning'].str.contains('unknown')).value_counts().index
+    
+    #I will now create a list of all the unknown values for each attribute and replace them on my azdias and customers
+    missing_unknowns = xls[xls['Meaning'].isin(unknowns)]
+    
+    for row in missing_unknowns.iterrows():
+        missing_values = row[1]['Value']
+        attribute = row[1]['Attribute']
+        
+        #dealing with columns that only exist in df
+        if attribute not in df.columns:
+            continue
+        
+        #dealing with strings or ints
+        if isinstance(missing_values,int): 
+            df[attribute].replace(missing_values, np.nan, inplace=True)
+        elif isinstance(missing_values,str):
+            eval("df[attribute].replace(["+missing_values+"], np.nan, inplace=True)")
         
         
 # creating a function to determine percentage of missing values
@@ -384,3 +409,44 @@ def display_interesting_features(df, pca, dimensions):
     print('Highest: ')
     for feature, weight in sorted_weights[-3:]:
         print('\t{:20} {:.3f}'.format(feature, weight))
+        
+#function to fit the kmeans model
+def fit_kmeans(data, centers):
+    '''
+    returns the kmeans score regarding SSE for points to centers
+    INPUT:
+        data - the dataset you want to fit kmeans to
+        center - the number of centers you want (the k value)
+    OUTPUT:
+        score - the SSE score for the kmeans model fit to the data
+    
+    '''
+    kmeans = KMeans(centers)
+    model = kmeans.fit(data)
+    # SSE score for kmeans model 
+    score = np.abs(model.score(data))
+    return score
+        
+        
+#function to dispplay elbow plot
+def elbow_method(data):
+    scores = []
+    centers = list(range(1,20))
+    i = 0
+    for center in centers:
+        i += 1
+        print(i)
+        scores.append(fit_kmeans(data, center))
+        
+    # Investigate the change in within-cluster distance across number of clusters.
+    # Plot the original data with clusters
+    plt.plot(centers, scores, linestyle='--', marker='o', color='b')
+    plt.ylabel('SSE score')
+    plt.xlabel('K')
+    plt.title('SSE vs K')
+
+    #Using a regression to determine where it is a good cluster number to divide the population (when the gradient decreases)
+    l_reg = LinearRegression()
+    l_reg.fit(X=np.asarray([[9,10,11,12,13,14]]).reshape(6,1), y=scores[8:14])
+    predicted =l_reg.predict(np.asarray(range(2,9)).reshape(-1,1))
+    plt.plot(list(range(2,20)),np.asarray(list(predicted.reshape(-1,1)) + list(scores[8:20])),'r')
