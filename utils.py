@@ -24,6 +24,16 @@ def mixed_type_fixer(df, cols):
     returns:
     dataframe with fixed columns
     '''
+    cameo_dict = {'1A':1, '1B':2, '1C': 3, '1D':4, '1E':5,
+                 '2A':6, '2B':7, '2C': 8, '2D':9,
+                 '3A':10, '3B':11, '3C': 12, '3D':13,
+                 '4A':14, '4B':15, '4C': 16, '4D':17, '4E':18,
+                 '5A':19, '5B':20, '5C': 21, '5D':22, '5E':23, '5F': 24,
+                 '6A':25, '6B':26, '6C': 27, '6D':28, '6E':29, '6F': 30,
+                 '7A':31, '7B':32, '7C': 33, '7D':34, '7E':35,
+                 '8A':36, '8B':37, '8C': 38, '8D':39,
+                 '9A':40, '9B':41, '9C': 42, '9D':43, '9E':44,}
+    df['CAMEO_DEU_2015'] = df['CAMEO_DEU_2015'].map(cameo_dict)
     df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
     df[cols] = df[cols].astype(float)
     
@@ -45,44 +55,6 @@ def categorical_checker(df, attributes_df):
     multilevel = [x for x in categorical if df[x].nunique()>2]
     print(df[categorical].nunique())
     
-#function to replace missing or unknow values based on the information in the attributes df
-def feat_fixer(df, attributes_df):
-    '''
-    This function takes in any df and the attributes df and replaces missing and unknown values
-    based on the information of the attributes dataframe
-    Args:
-    df: dany dataframe from this project with demo information
-    attributes_df: dataframe with attributes summary
-    returns:
-    dataframe with missing and unknown replaced with nan
-    '''
-    df.replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
-    #parsing unknown and missing values from the attributes dataframe
-    m_o_u_list = [x.replace("[","").replace("]","").split(',') for x in attributes_df['missing_or_unknown']]
-    
-    #changing strings to floats
-    m_o_u_float = []
-    for x in m_o_u_list:
-        #list inside list
-        list_of_list = []
-        for missing in x:
-            try:
-                missing = float(missing)
-                list_of_list.append(missing)
-            except:
-                missing = np.nan
-                list_of_list.append(missing)
-        list_of_list
-                
-        m_o_u_float.append(list_of_list)
-        
-        #replacing the missing and unknown values with nan
-    for col, m_unknown in zip(df.columns, m_o_u_float):
-        for miss in m_unknown:
-            df[col].replace(m_unknown, np.nan, inplace = True)
-                 
-                   
-    return df
 
 # function to determine if 2 dataframes are balanced in terms of number and type of features
 def balance_checker(df1, df2):
@@ -205,23 +177,33 @@ def feat_eng(df):
            8: 70, 9: 70, 10: 80, 11: 80, 12: 80, 13: 80, 14: 90,
            15: 90, 0: np.nan}
     df['PRAEGENDE_JUGENDJAHRE_DECADE'] = df['PRAEGENDE_JUGENDJAHRE'].map(decades_dict)
+    print('Creating PRAEGENDE_JUGENDJAHRE_DECADE feature')
+    
     #mainstream or avant-garde movement
     movement_dict = {1: 0, 2: 1, 3: 0, 4: 1, 5: 0, 6: 1, 7: 1, 8: 0,
            9: 1, 10: 0, 11: 1, 12: 0, 13: 1, 14: 0, 15: 1, 0: np.nan}
     df['PRAEGENDE_JUGENDJAHRE_MOVEMENT'] = df['PRAEGENDE_JUGENDJAHRE'].map(movement_dict)
-
+    
+    print('Creating PRAEGENDE_JUGENDJAHRE_MOVEMENT feature')
        
     # WOHNLAGE refers to neighborhood area, from very good to poor; rural
     #creating dictionaries for WOHNLAGE
     area_dict = {1.0:0, 2.0:0, 3.0:0, 4.0:0, 5.0:0, 7.0:1, 8.0:1}
     #creating a feature for borough quality
     df['WOHNLAGE_QUALITY'] = df[(df['WOHNLAGE'] > 0) & (df['WOHNLAGE'] < 7)]['WOHNLAGE']
+    
+    print('Creating WOHNLAGE_QUALITY feature')
+    
     #creating a feature for rural/urban division
     df['WOHNLAGE_AREA'] = df['WOHNLAGE'].map(area_dict)
+    print('Creating WOHNLAGE_AREA feature')
+    
     
     #Using CAMEO to create a wealth and family type feature
     df['WEALTH'] = df['CAMEO_INTL_2015'].apply(lambda x: np.floor_divide(float(x), 10) if float(x) else np.nan)
     df['FAMILY'] = df['CAMEO_INTL_2015'].apply(lambda x: np.mod(float(x), 10) if float(x) else np.nan)
+    print('Creating Wealth and Family feature')
+    
     
     #dealing with LP_LEBENSPHASE_FEIN
     life_stage = {1: 'younger_age', 2: 'middle_age', 3: 'younger_age',
@@ -258,10 +240,34 @@ def feat_eng(df):
     df['LP_LEBENSPHASE_FEIN_life_stage'] = df['LP_LEBENSPHASE_FEIN_life_stage'].map(life_dict)
     df['LP_LEBENSPHASE_FEIN_fine_scale'] = df['LP_LEBENSPHASE_FEIN_fine_scale'].map(scale_dict)
     
+    print('Creating LP_LEBENSPHASE_FEIN_life_stage and LP_LEBENSPHASE_FEIN_fine_scale feature')
+    
+    #I could not find much information on D19_LETZTER_KAUF_BRANCHE so I will have an agnostic approach to it
+    branch = {'D19_UNBEKANNT':1, 'D19_SCHUHE':2, 'D19_ENERGIE':3, 'D19_KOSMETIK':4,
+       'D19_VOLLSORTIMENT':5, 'D19_SONSTIGE':6, 'D19_BANKEN_GROSS':7,
+       'D19_DROGERIEARTIKEL':8, 'D19_HANDWERK':9, 'D19_BUCH_CD':10,
+       'D19_VERSICHERUNGEN':11, 'D19_VERSAND_REST':12, 'D19_TELKO_REST':13,
+       'D19_BANKEN_DIREKT':14, 'D19_BANKEN_REST':15, 'D19_FREIZEIT':16,
+       'D19_LEBENSMITTEL':17, 'D19_HAUS_DEKO':18, 'D19_BEKLEIDUNG_REST':19,
+       'D19_SAMMELARTIKEL':20, 'D19_TELKO_MOBILE':21, 'D19_REISEN':22,
+       'D19_BEKLEIDUNG_GEH':23, 'D19_TECHNIK':24, 'D19_NAHRUNGSERGAENZUNG':25,
+       'D19_DIGIT_SERV':26, 'D19_LOTTO':27, 'D19_RATGEBER':28, 'D19_TIERARTIKEL':29,
+       'D19_KINDERARTIKEL':30, 'D19_BIO_OEKO':31, 'D19_WEIN_FEINKOST':32,
+       'D19_GARTEN':33, 'D19_BILDUNG':34, 'D19_BANKEN_LOKAL':35}
+    
+    df['D19_LETZTER_KAUF_BRANCHE_NUM'] = df['D19_LETZTER_KAUF_BRANCHE'].map(branch)
+    print('Creating D19_LETZTER_KAUF_BRANCHE feature')
+    
+    #Creating Nationality
+    nat = {0: np.nan, 1:1, 2:2, 3:3, 4:4}
+    df['NATIONALITY'] = df['NATIONALITAET_KZ'].map(nat)
+    print('Creating NATIONALITY feature')
+    
+
     
     #dropping columns used to create new features, have object types or duplicated information (ie. grob/fein)
     cols = ['PRAEGENDE_JUGENDJAHRE', 'WOHNLAGE', 'CAMEO_INTL_2015','LP_LEBENSPHASE_GROB', 'LP_LEBENSPHASE_FEIN',
-            'D19_LETZTER_KAUF_BRANCHE' ]
+            'D19_LETZTER_KAUF_BRANCHE', 'NATIONALITAET_KZ' ]
     df.drop(cols, axis = 1, inplace = True)
     
     
