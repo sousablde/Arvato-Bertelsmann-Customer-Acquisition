@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from pylab import *
 
 # sklearn
-from sklearn.preprocessing import StandardScaler, Imputer, RobustScaler, MinMaxScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, OneHotEncoder, LabelEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
@@ -13,34 +14,6 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import confusion_matrix,precision_recall_fscore_support
 from sklearn.utils.multiclass import unique_labels
 
-
-#function to fix mixed type columns
-def mixed_type_fixer(df, cols):
-    '''
-    Function to convert mixed type columns to floats
-    ARGS:
-    dataframe: df we need to fix
-    cols: cols in need to be fixed
-    returns:
-    dataframe with fixed columns
-    '''
-    cameo_dict = {'1A':1, '1B':2, '1C': 3, '1D':4, '1E':5,
-                 '2A':6, '2B':7, '2C': 8, '2D':9,
-                 '3A':10, '3B':11, '3C': 12, '3D':13,
-                 '4A':14, '4B':15, '4C': 16, '4D':17, '4E':18,
-                 '5A':19, '5B':20, '5C': 21, '5D':22, '5E':23, '5F': 24,
-                 '6A':25, '6B':26, '6C': 27, '6D':28, '6E':29, '6F': 30,
-                 '7A':31, '7B':32, '7C': 33, '7D':34, '7E':35,
-                 '8A':36, '8B':37, '8C': 38, '8D':39,
-                 '9A':40, '9B':41, '9C': 42, '9D':43, '9E':44,}
-    df['CAMEO_DEU_2015'] = df['CAMEO_DEU_2015'].map(cameo_dict)
-    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
-    df[cols] = df[cols].astype(float)
-    
-    #drop the unnamed column
-    df = df.drop(df.columns[0], axis = 1)
-    
-    return df
 
 #function to check categorical variable counts
 def categorical_checker(df, attributes_df):
@@ -184,6 +157,26 @@ def row_dropper(df, boundary):
 
 #function to handle special feature columns
 def special_feature_handler(df):
+    
+    #drop the unnamed column
+    df = df.drop(df.columns[0], axis = 1)
+    
+    #one hot encoding for Cameo_deu_2015
+    cameo_fill = df['CAMEO_DEU_2015'].value_counts().idxmax()
+    df['CAMEO_DEU_2015'] = df['CAMEO_DEU_2015'].fillna(cameo_fill)
+    df['CAMEO_DEU_2015'] = df['CAMEO_DEU_2015'].replace(['XX'], cameo_fill)
+    data = df['CAMEO_DEU_2015']
+    values = array(data)
+    label_encoder = LabelEncoder()
+    int_encoder = label_encoder.fit_transform(values)
+    df['CAMEO_DEU_2015'] = int_encoder
+    
+    #dealing with the X and XX that appear in the place of NAN
+    #'CAMEO_DEU_2015'
+    cols = ['CAMEO_DEUG_2015', 'CAMEO_INTL_2015']
+    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
+    df[cols] = df[cols].astype(float)
+    
     #extract the time,and keep the year for column with date/time information
     df["EINGEFUEGT_AM"]=pd.to_datetime(df["EINGEFUEGT_AM"]).dt.year
     
@@ -267,43 +260,41 @@ def feat_eng(df):
     
     print('Creating LP_LEBENSPHASE_FEIN_life_stage and LP_LEBENSPHASE_FEIN_fine_scale feature')
     
-    #I could not find much information on D19_LETZTER_KAUF_BRANCHE so I will have an agnostic approach to it
-    branch = {'D19_UNBEKANNT':1, 'D19_SCHUHE':2, 'D19_ENERGIE':3, 'D19_KOSMETIK':4,
-       'D19_VOLLSORTIMENT':5, 'D19_SONSTIGE':6, 'D19_BANKEN_GROSS':7,
-       'D19_DROGERIEARTIKEL':8, 'D19_HANDWERK':9, 'D19_BUCH_CD':10,
-       'D19_VERSICHERUNGEN':11, 'D19_VERSAND_REST':12, 'D19_TELKO_REST':13,
-       'D19_BANKEN_DIREKT':14, 'D19_BANKEN_REST':15, 'D19_FREIZEIT':16,
-       'D19_LEBENSMITTEL':17, 'D19_HAUS_DEKO':18, 'D19_BEKLEIDUNG_REST':19,
-       'D19_SAMMELARTIKEL':20, 'D19_TELKO_MOBILE':21, 'D19_REISEN':22,
-       'D19_BEKLEIDUNG_GEH':23, 'D19_TECHNIK':24, 'D19_NAHRUNGSERGAENZUNG':25,
-       'D19_DIGIT_SERV':26, 'D19_LOTTO':27, 'D19_RATGEBER':28, 'D19_TIERARTIKEL':29,
-       'D19_KINDERARTIKEL':30, 'D19_BIO_OEKO':31, 'D19_WEIN_FEINKOST':32,
-       'D19_GARTEN':33, 'D19_BILDUNG':34, 'D19_BANKEN_LOKAL':35}
-    
-    df['D19_LETZTER_KAUF_BRANCHE_NUM'] = df['D19_LETZTER_KAUF_BRANCHE'].map(branch)
-    print('Creating D19_LETZTER_KAUF_BRANCHE feature')
     
     #Creating Nationality
-    nat = {0: np.nan, 1:1, 2:2, 3:3, 4:4}
+    nat = {0:0, 1:1, 2:2, 3:3, 4:4}
     df['NATIONALITY'] = df['NATIONALITAET_KZ'].map(nat)
     print('Creating NATIONALITY feature')
     
+    #one hot encoding
+    cat_features = ['ANREDE_KZ','CAMEO_DEU_2015','CAMEO_DEUG_2015','CJT_GESAMTTYP','D19_BANKEN_DATUM',
+                'D19_BANKEN_OFFLINE_DATUM','D19_BANKEN_ONLINE_DATUM','D19_GESAMT_DATUM','D19_GESAMT_OFFLINE_DATUM',
+                'D19_GESAMT_ONLINE_DATUM','D19_KONSUMTYP','D19_TELKO_DATUM','D19_TELKO_OFFLINE_DATUM',
+                'D19_TELKO_ONLINE_DATUM','D19_VERSAND_DATUM','D19_VERSAND_OFFLINE_DATUM',
+                'D19_VERSAND_ONLINE_DATUM','D19_VERSI_DATUM','D19_VERSI_OFFLINE_DATUM',
+                'D19_VERSI_ONLINE_DATUM','FINANZTYP','GFK_URLAUBERTYP','GREEN_AVANTGARDE',
+                'LP_FAMILIE_FEIN','LP_FAMILIE_GROB','LP_STATUS_FEIN','LP_STATUS_GROB',
+                'OST_WEST_KZ','PLZ8_BAUMAX','SHOPPER_TYP','SOHO_KZ','VERS_TYP','ZABEOTYP','NATIONALITAET_KZ']
+
+    df = pd.get_dummies(df, columns = cat_features, prefix = cat_features, dummy_na = True, drop_first = True)
 
     
     #dropping columns used to create new features, have object types or duplicated information (ie. grob/fein)
     cols = ['PRAEGENDE_JUGENDJAHRE', 'WOHNLAGE', 'CAMEO_INTL_2015','LP_LEBENSPHASE_GROB', 'LP_LEBENSPHASE_FEIN',
-            'D19_LETZTER_KAUF_BRANCHE', 'NATIONALITAET_KZ' ]
+            'D19_LETZTER_KAUF_BRANCHE', 'GEBAEUDETYP']
+    
     df.drop(cols, axis = 1, inplace = True)
     
-    
+    #imputing nans with median value
+    imputer = SimpleImputer(strategy= 'most_frequent')
+    df = imputer.fit_transform(df)
+       
     return df
+
 #function to scale and normalize the dataframes features
 def feature_scaling(df, type_scale):
     
     features_list = df.columns
-    
-    #dealing with remaining missing values
-    df.fillna(0, inplace = True)
     
     if type_scale == 'StandardScaler':
         df_scaled = StandardScaler().fit_transform(df)
@@ -318,6 +309,7 @@ def feature_scaling(df, type_scale):
     df_scaled.columns = features_list
     
     return df_scaled
+
 
 #pca model
 def pca_model(df, n_components):
