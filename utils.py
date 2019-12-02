@@ -35,7 +35,9 @@ def categorical_checker(df, attributes_df):
 # function to determine if 2 dataframes are balanced in terms of number and type of features
 def balance_checker(df1, df2):
     '''
-    Takes in 2 dataframes and checks if attributes match
+    Takes in 2 dataframes and checks if attributes match between the 2 dataframes match
+    Args: any 2 dataframes 
+    prints True or False if the dataframes match or not
     '''
     features_list_df1 = df1.columns.values
     features_list_df2 = df2.columns.values
@@ -103,6 +105,7 @@ def row_hist(df1, df2, bins):
     we want the data to be distributed by and plots a histogram of nulls distribution accross
     rows
     '''
+    rcParams['figure.figsize'] = 8, 8
    
     plt.hist(df1.isnull().sum(axis=1), bins, color = 'cyan')
 
@@ -135,6 +138,12 @@ def row_dropper(df, boundary):
 
 #function to handle special feature columns
 def special_feature_handler(df):
+    '''
+    This function deals with the special characters in the cameo columns
+    Finds the special characters and replaces them with nan
+    Args: azdias or customer dataframe
+    returns: dataframe with X or XX replaced with nan
+    '''
     
     #drop the unnamed column
     df = df.drop(df.columns[0], axis = 1)
@@ -149,6 +158,11 @@ def special_feature_handler(df):
 
 #function to deal with all the missing and unknown entries
 def unknowns_to_NANs(df, xls):
+    '''
+    This function uses the information in the Dias files to help identify values that are missing or unknown
+    Replaces missing or unknown value with nan
+    Args: customer or azdias dataframe and dias dataframe
+    '''
     
     #using the DIAs xls file lets save meanings that might indicate unknown values
     unknowns = xls['Meaning'].where(xls['Meaning'].str.contains('unknown')).value_counts().index
@@ -172,6 +186,12 @@ def unknowns_to_NANs(df, xls):
 
 #function for features engineering: creating novel features
 def feat_eng(df):
+    '''
+    This function takes in either the azdias dataframe or the customers dataframe to create new features
+    and encode select categorical features
+    Args: customer or azdias dataframe
+    returns: dataframe with novel features and encoded categorical features
+    '''
     
     #dropping columns that appear in customers but not azdias if present
     if 'REGIOTYP' in df:
@@ -288,6 +308,11 @@ def feat_eng(df):
 
 #function to scale and normalize the dataframes features
 def feature_scaling(df, type_scale):
+    '''
+    This function takes in either the azdias or the customers dataframe and applyes the selected feature scaler
+    Args: customer or azdias dataframe and a string representing the type of scaling intended
+    returns: scaled dataframe
+    '''
     
     features_list = df.columns
     
@@ -349,6 +374,7 @@ def interpret_pca(df, n_components, component):
         df_pca (dataframe): dataframe for specified component containing the explained variance
                             and all features and weights sorted according to weight.
     '''
+    rcParams['figure.figsize'] = 8, 8
     pca = PCA(n_components)
     df_pca = pca.fit_transform(df)
     
@@ -370,6 +396,9 @@ def interpret_pca(df, n_components, component):
 
 #function to display interesting features
 def display_interesting_features(df, pca, dimensions):
+    '''
+    This function displays interesting features of the selected dimension
+    '''
     
     features = df.columns.values
     components = pca.components_
@@ -402,7 +431,7 @@ def fit_kmeans(data, centers):
     return score
         
         
-#function to dispplay elbow plot
+#function to display elbow plot
 def elbow_method(data):
     scores = []
     centers = list(range(1,15))
