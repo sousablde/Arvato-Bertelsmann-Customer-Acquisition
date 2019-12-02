@@ -50,28 +50,6 @@ def balance_checker(df1, df2):
         print('Your second argument df differs from the first on the following columns: ')
         print(set(features_list_df2) - set(features_list_df1))
         
-#function to deal with all the missing and unknown entries
-def unknowns_to_NANs(df, xls):
-    #using the DIAs xls file lets save meanings that might indicate unknown values
-    unknowns = xls['Meaning'].where(xls['Meaning'].str.contains('unknown')).value_counts().index
-    
-    #I will now create a list of all the unknown values for each attribute and replace them on my azdias and customers
-    missing_unknowns = xls[xls['Meaning'].isin(unknowns)]
-    
-    for row in missing_unknowns.iterrows():
-        missing_values = row[1]['Value']
-        attribute = row[1]['Attribute']
-        
-        #dealing with columns that only exist in df
-        if attribute not in df.columns:
-            continue
-        
-        #dealing with strings or ints
-        if isinstance(missing_values,int): 
-            df[attribute].replace(missing_values, np.nan, inplace=True)
-        elif isinstance(missing_values,str):
-            eval("df[attribute].replace(["+missing_values+"], np.nan, inplace=True)")
-        
         
 # creating a function to determine percentage of missing values
 def percentage_of_missing(df):
@@ -126,9 +104,9 @@ def row_hist(df1, df2, bins):
     rows
     '''
    
-    plt.hist(df1.isnull().sum(axis=1), bins, color = 'orange')
+    plt.hist(df1.isnull().sum(axis=1), bins, color = 'cyan')
 
-    plt.hist(df2.isnull().sum(axis=1), bins, color = 'green')
+    plt.hist(df2.isnull().sum(axis=1), bins, color = 'grey')
 
     plt.title('Distributions of null values in Azdias and Customers rows')
     plt.xlabel('# Null Values')
@@ -147,7 +125,7 @@ def row_dropper(df, boundary):
     boundary: number of missing entries limit to droppable rows
     
     returns:
-    dataframe with dropped rows with more than a percentage of missing values
+    dataframe with dropped rows with more than a certain amount of missing values
     '''
     df = df.dropna(thresh=df.shape[1]-boundary)
     df = df.reset_index()
@@ -161,7 +139,51 @@ def special_feature_handler(df):
     #drop the unnamed column
     df = df.drop(df.columns[0], axis = 1)
     
-    #one hot encoding for Cameo_deu_2015
+    #dealing with the X and XX that appear in the place of NAN
+    #'CAMEO_DEU_2015'
+    cols = ['CAMEO_DEUG_2015', 'CAMEO_INTL_2015']
+    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
+    df[cols] = df[cols].astype(float)
+       
+    return df
+
+#function to deal with all the missing and unknown entries
+def unknowns_to_NANs(df, xls):
+    
+    #using the DIAs xls file lets save meanings that might indicate unknown values
+    unknowns = xls['Meaning'].where(xls['Meaning'].str.contains('unknown')).value_counts().index
+    
+    #I will now create a list of all the unknown values for each attribute and replace them on my azdias and customers
+    missing_unknowns = xls[xls['Meaning'].isin(unknowns)]
+    
+    for row in missing_unknowns.iterrows():
+        missing_values = row[1]['Value']
+        attribute = row[1]['Attribute']
+        
+        #dealing with columns that only exist in df
+        if attribute not in df.columns:
+            continue
+        
+        #dealing with strings or ints
+        if isinstance(missing_values,int): 
+            df[attribute].replace(missing_values, np.nan, inplace=True)
+        elif isinstance(missing_values,str):
+            eval("df[attribute].replace(["+missing_values+"], np.nan, inplace=True)")
+
+#function for features engineering: creating novel features
+def feat_eng(df):
+    
+    #dropping columns that appear in customers but not azdias if present
+    if 'REGIOTYP' in df:
+        df.drop('REGIOTYP', axis = 1, inplace = True)
+    if 'KKK' in df:
+        df.drop('KKK', axis = 1, inplace = True)
+    
+    #OST_WEST_KZ is a binary feature that needs encoding it takes the values array(['W', 'O'], dtype=object)
+    o_w_k_dict = {'OST_WEST_KZ': {'W':0, 'O':1}}
+    df = df.replace(o_w_k_dict)
+    
+    #label encoding for Cameo_deu_2015
     cameo_fill = df['CAMEO_DEU_2015'].value_counts().idxmax()
     df['CAMEO_DEU_2015'] = df['CAMEO_DEU_2015'].fillna(cameo_fill)
     df['CAMEO_DEU_2015'] = df['CAMEO_DEU_2015'].replace(['XX'], cameo_fill)
@@ -170,24 +192,10 @@ def special_feature_handler(df):
     label_encoder = LabelEncoder()
     int_encoder = label_encoder.fit_transform(values)
     df['CAMEO_DEU_2015'] = int_encoder
-    
-    #dealing with the X and XX that appear in the place of NAN
-    #'CAMEO_DEU_2015'
-    cols = ['CAMEO_DEUG_2015', 'CAMEO_INTL_2015']
-    df[cols] = df[cols].replace({'X': np.nan, 'XX':np.nan, '': np.nan, ' ':np.nan})
-    df[cols] = df[cols].astype(float)
-    
+
+
     #extract the time,and keep the year for column with date/time information
     df["EINGEFUEGT_AM"]=pd.to_datetime(df["EINGEFUEGT_AM"]).dt.year
-    
-    #OST_WEST_KZ is a binary feature that needs encoding it takes the values array(['W', 'O'], dtype=object)
-    o_w_k_dict = {'OST_WEST_KZ': {'W':0, 'O':1}}
-    df = df.replace(o_w_k_dict)
-    
-    return df
-
-#function for features engineering: creating novel features
-def feat_eng(df):
     
     #creating the dictionaries for mapping in PRAEGENDE_JUGENDJAHRE
     #decades:
@@ -221,8 +229,7 @@ def feat_eng(df):
     df['WEALTH'] = df['CAMEO_INTL_2015'].apply(lambda x: np.floor_divide(float(x), 10) if float(x) else np.nan)
     df['FAMILY'] = df['CAMEO_INTL_2015'].apply(lambda x: np.mod(float(x), 10) if float(x) else np.nan)
     print('Creating Wealth and Family feature')
-    
-    
+     
     #dealing with LP_LEBENSPHASE_FEIN
     life_stage = {1: 'younger_age', 2: 'middle_age', 3: 'younger_age',
               4: 'middle_age', 5: 'advanced_age', 6: 'retirement_age',
@@ -260,36 +267,24 @@ def feat_eng(df):
     
     print('Creating LP_LEBENSPHASE_FEIN_life_stage and LP_LEBENSPHASE_FEIN_fine_scale feature')
     
-    
-    #Creating Nationality
-    nat = {0:0, 1:1, 2:2, 3:3, 4:4}
-    df['NATIONALITY'] = df['NATIONALITAET_KZ'].map(nat)
-    print('Creating NATIONALITY feature')
-    
-    #one hot encoding
-    cat_features = ['ANREDE_KZ','CAMEO_DEU_2015','CAMEO_DEUG_2015','CJT_GESAMTTYP','D19_BANKEN_DATUM',
-                'D19_BANKEN_OFFLINE_DATUM','D19_BANKEN_ONLINE_DATUM','D19_GESAMT_DATUM','D19_GESAMT_OFFLINE_DATUM',
-                'D19_GESAMT_ONLINE_DATUM','D19_KONSUMTYP','D19_TELKO_DATUM','D19_TELKO_OFFLINE_DATUM',
-                'D19_TELKO_ONLINE_DATUM','D19_VERSAND_DATUM','D19_VERSAND_OFFLINE_DATUM',
-                'D19_VERSAND_ONLINE_DATUM','D19_VERSI_DATUM','D19_VERSI_OFFLINE_DATUM',
-                'D19_VERSI_ONLINE_DATUM','FINANZTYP','GFK_URLAUBERTYP','GREEN_AVANTGARDE',
-                'LP_FAMILIE_FEIN','LP_FAMILIE_GROB','LP_STATUS_FEIN','LP_STATUS_GROB',
-                'OST_WEST_KZ','PLZ8_BAUMAX','SHOPPER_TYP','SOHO_KZ','VERS_TYP','ZABEOTYP','NATIONALITAET_KZ']
-
+    #one hot encoding of remaining features
+    cat_features = ['ANREDE_KZ']
     df = pd.get_dummies(df, columns = cat_features, prefix = cat_features, dummy_na = True, drop_first = True)
 
     
     #dropping columns used to create new features, have object types or duplicated information (ie. grob/fein)
     cols = ['PRAEGENDE_JUGENDJAHRE', 'WOHNLAGE', 'CAMEO_INTL_2015','LP_LEBENSPHASE_GROB', 'LP_LEBENSPHASE_FEIN',
-            'D19_LETZTER_KAUF_BRANCHE', 'GEBAEUDETYP']
+            'D19_LETZTER_KAUF_BRANCHE']
     
     df.drop(cols, axis = 1, inplace = True)
-    
-    #imputing nans with median value
+            
+    #imputing nans with most frequent value
     imputer = SimpleImputer(strategy= 'most_frequent')
-    df = imputer.fit_transform(df)
+    imputed_df = pd.DataFrame(imputer.fit_transform(df))
+    imputed_df.columns = df.columns
+    imputed_df.index = df.index
        
-    return df
+    return imputed_df
 
 #function to scale and normalize the dataframes features
 def feature_scaling(df, type_scale):
@@ -298,9 +293,6 @@ def feature_scaling(df, type_scale):
     
     if type_scale == 'StandardScaler':
         df_scaled = StandardScaler().fit_transform(df)
-        
-    if type_scale == 'RobustScaler':
-        df_scaled = RobustScaler().fit_transform(df)
         
     if type_scale == 'MinMaxScaler':
         df_scaled = MinMaxScaler().fit_transform(df)
@@ -323,11 +315,11 @@ def pca_model(df, n_components):
     return pca_df
 
 #scree plots for PCA
-def scree_plots(SS, RS, MMS, dataname):
+def scree_plots(SS,MMS, dataname):
     '''
     This function takes in the transformed data using PCA and plots it in scree plots
     '''
-    subplot(3,1,1)
+    subplot(2,1,1)
 
     plt.plot(np.cumsum(SS.explained_variance_ratio_))
     plt.xlabel('Number of Components')
@@ -335,17 +327,7 @@ def scree_plots(SS, RS, MMS, dataname):
     plt.title('Explained Variance Ratio vs Number of Components SS' + dataname)
     plt.grid(b=True)
 
-
-
-    subplot(3,1,2)
-    plt.plot(np.cumsum(RS.explained_variance_ratio_))
-    plt.xlabel('Number of Components')
-    plt.ylabel('Explained Variance Ratio')
-    plt.title('Explained Variance Ratio vs Number of Components RS' + dataname)
-    plt.grid(b=True)
-
-
-    subplot(3,1,3)
+    subplot(2,1,2)
     plt.plot(np.cumsum(MMS.explained_variance_ratio_))
     plt.xlabel('Number of Components')
     plt.ylabel('Explained Variance Ratio')
@@ -423,7 +405,7 @@ def fit_kmeans(data, centers):
 #function to dispplay elbow plot
 def elbow_method(data):
     scores = []
-    centers = list(range(1,20))
+    centers = list(range(1,15))
     i = 0
     for center in centers:
         i += 1
@@ -432,13 +414,11 @@ def elbow_method(data):
         
     # Investigate the change in within-cluster distance across number of clusters.
     # Plot the original data with clusters
+    f = plt.figure()
     plt.plot(centers, scores, linestyle='--', marker='o', color='b')
     plt.ylabel('SSE score')
     plt.xlabel('K')
     plt.title('SSE vs K')
+    f.savefig('elbow.png', bbox_inches='tight', dpi=600)
 
-    #Using a regression to determine where it is a good cluster number to divide the population (when the gradient decreases)
-    l_reg = LinearRegression()
-    l_reg.fit(X=np.asarray([[9,10,11,12,13,14]]).reshape(6,1), y=scores[8:14])
-    predicted =l_reg.predict(np.asarray(range(2,9)).reshape(-1,1))
-    plt.plot(list(range(2,20)),np.asarray(list(predicted.reshape(-1,1)) + list(scores[8:20])),'r')
+    
