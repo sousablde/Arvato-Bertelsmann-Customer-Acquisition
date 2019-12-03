@@ -146,8 +146,10 @@ def special_feature_handler(df):
     '''
     
     #drop the unnamed column
-    df = df.drop(df.columns[0], axis = 1)
-    
+    if 'Unnamed: 0' in df:
+        df.drop('Unnamed: 0', axis = 1, inplace = True)
+        
+        
     #dealing with the X and XX that appear in the place of NAN
     #'CAMEO_DEU_2015'
     cols = ['CAMEO_DEUG_2015', 'CAMEO_INTL_2015']
