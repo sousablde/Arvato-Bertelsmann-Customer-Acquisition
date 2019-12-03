@@ -215,7 +215,7 @@ def feat_eng(df):
 
 
     #extract the time,and keep the year for column with date/time information
-    df["EINGEFUEGT_AM"]=pd.to_datetime(df["EINGEFUEGT_AM"]).dt.year
+    df['EINGEFUEGT_AM']=pd.to_datetime(df['EINGEFUEGT_AM']).dt.year
     
     #creating the dictionaries for mapping in PRAEGENDE_JUGENDJAHRE
     #decades:
