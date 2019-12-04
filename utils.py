@@ -14,6 +14,9 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import confusion_matrix,precision_recall_fscore_support
 from sklearn.utils.multiclass import unique_labels
 
+'''
+################## Checking balance between dataframes and types of features ##################
+'''
 
 #function to check categorical variable counts
 def categorical_checker(df, attributes_df):
@@ -52,7 +55,10 @@ def balance_checker(df1, df2):
         print('Your second argument df differs from the first on the following columns: ')
         print(set(features_list_df2) - set(features_list_df1))
         
-        
+'''
+################## Checking missing values ##################
+'''
+
 # creating a function to determine percentage of missing values
 def percentage_of_missing(df):
     '''
@@ -135,6 +141,10 @@ def row_dropper(df, boundary):
     del df['index']
     
     return df
+
+'''
+################## Data Cleaning and feature engineering ##################
+'''
 
 #function to handle special feature columns
 def special_feature_handler(df):
@@ -329,6 +339,9 @@ def feature_scaling(df, type_scale):
     
     return df_scaled
 
+'''
+################## Models and model viz ##################
+'''
 
 #pca model
 def pca_model(df, n_components):
@@ -451,5 +464,180 @@ def elbow_method(data):
     plt.xlabel('K')
     plt.title('SSE vs K')
     f.savefig('elbow.png', bbox_inches='tight', dpi=600)
+    
+    
+def create_base_models():
+    '''
+    Creates base models.
+    
+    Args:
+        None
+    
+    Returns:
+        baseModels (list) - list containing base models.
+    '''
+    basedModels = []
+    basedModels.append(('LR', LogisticRegression(solver='liblinear', random_state=SEED)))
+    basedModels.append(('RF', RandomForestClassifier(n_estimators=250, random_state=SEED)))
+    basedModels.append(('XGB', xgb.XGBClassifier(random_state=SEED)))
+    basedModels.append(('LGBM', lgb.LGBMClassifier(random_state=SEED)))
+    basedModels.append(('GB', GradientBoostingClassifier(random_state=SEED)))
+    basedModels.append(('MLP', MLPClassifier(random_state=SEED)))
+    
+    return basedModels
+
+
+def evaluate(features, response, models, curve=False):
+    '''
+    Evaluates models using X-Fold cross-validation. 
+    Learning curve can also be plotted (optional).
+    
+    Args:
+        features (dataframe) - dataset to be used for training.
+        response (dataframe) - target variable
+        models (list) - list of models to evaluated.
+        curve (bool) - whether or not to plot learning curve.
+        
+    Returns:
+        names (list) - list of models tested.
+        results (list) - list of results for each model.
+    '''
+    results = []
+    names = []
+    for name, model in models:
+        cv_results = cross_val_score(model, features, response, cv=skf, scoring='roc_auc', n_jobs=1)
+        results.append(cv_results)
+        names.append(name)
+        msg = "%s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
+        print(msg)
+        if curve:
+            train_sizes, train_scores, test_scores = learning_curve(
+                model, features, response, cv=skf, scoring = 'roc_auc', train_sizes=np.linspace(.1, 1.0, 10), n_jobs=1)
+
+            train_scores_mean = np.mean(train_scores, axis=1)
+            test_scores_mean = np.mean(test_scores, axis=1)
+            print("roc auc train score = {}".format(train_scores_mean[-1].round(2)))
+            print("roc auc validation score = {}".format(test_scores_mean[-1].round(2)))
+            plt.grid()
+
+            plt.title("Learning Curve")
+            plt.xlabel("% of training set")
+            plt.ylabel("Score")
+
+            plt.plot(np.linspace(.1, 1.0, 10)*100, train_scores_mean, 'o-', color="g",
+                     label="Training score")
+            plt.plot(np.linspace(.1, 1.0, 10)*100, test_scores_mean, 'o-', color="r",
+                     label="Cross-validation score")
+
+            plt.yticks(np.arange(0.45, 1.02, 0.05))
+            plt.xticks(np.arange(0., 100.05, 10))
+            plt.legend(loc="best")
+            print("")
+            plt.show()
+        
+        
+    return names, results
+
+
+def get_scaled_preprocess(type_of_scaler):
+    '''
+    Create machine learning pipeline with or without scaler.
+    
+    Args:
+        type_of_scaler (str) - string value representing which scaler to use (if any).
+        
+    Returns (pipeline) - ml pipeline created.
+    '''
+    
+    if type_of_scaler == 'standard':
+        scaler = StandardScaler()
+    elif type_of_scaler == 'minmax':
+        scaler = MinMaxScaler()
+        
+    pipelines = []
+    pipelines.append((type_of_scaler+'LR', Pipeline([('Scaler', scaler), ('LR', LogisticRegression(solver='liblinear', random_state=SEED))])))
+    pipelines.append((type_of_scaler+'RF', Pipeline([('Scaler', scaler), ('RF', RandomForestClassifier(n_estimators=250, random_state=SEED))])))   
+    pipelines.append((type_of_scaler+'XGB', Pipeline([('Scaler', scaler), ('XGB', xgb.XGBClassifier(random_state=SEED))])))
+    pipelines.append((type_of_scaler+'LGBM', Pipeline([('Scaler', scaler), ('LGBM', lgb.LGBMClassifier(random_state=SEED))])))
+    pipelines.append((type_of_scaler+'GB', Pipeline([('Scaler', scaler), ('GB', GradientBoostingClassifier(random_state=SEED))])))   
+    pipelines.append((type_of_scaler+'MLP', Pipeline([('Scaler', scaler), ('MLP', MLPClassifier(random_state=SEED))])))   
 
     
+    return pipelines
+
+
+def create_score_df(names, results):
+    '''
+    Creates a dataframe containing model names and corresponding score.
+    
+    Args:
+        names (list) - list of model names.
+        results (list) - list of scores.
+    '''
+    def floatingDecimals(f_val, dec=3):
+        prc = "{:."+str(dec)+"f}" 
+    
+        return float(prc.format(f_val))
+
+    scores = []
+    for r in results:
+        scores.append(floatingDecimals(r.mean(),4))
+
+    scoreDataFrame = pd.DataFrame({'Model':names, 'Score': scores})
+    return scoreDataFrame
+
+
+
+def plot_feature_importances(model, model_type, features, plot_n=10):
+    '''
+    Plots n most important features and importance.
+    
+    Args:
+        model (classifier) - trained model.
+        model_type (str) - type of model.
+        features (list) - list of feature names.
+        plot_n (int) - number of features to plot.
+    '''
+    feature_importance_values= np.zeros((len(model.feature_importances_)))
+    
+    feature_importance_values += model.feature_importances_
+
+    feature_importances = pd.DataFrame({'feature': features, 'importance': feature_importance_values})
+
+    # sort based on importance
+    feature_importances = feature_importances.sort_values('importance', ascending = False).reset_index(drop = True)
+
+    # normalize the feature importances to add up to one
+    feature_importances['normalized_importance'] = feature_importances['importance'] / feature_importances['importance'].sum()
+    feature_importances['cumulative_importance'] = np.cumsum(feature_importances['normalized_importance'])
+    
+    plt.figure(figsize=(10, 6))
+    ax = plt.subplot()
+    
+    ax.barh(list(reversed(list(feature_importances.index[:plot_n]))), 
+                feature_importances['normalized_importance'][:plot_n], 
+                align = 'center', edgecolor = 'k')
+
+    # Set ticks and labels
+    ax.set_yticks(list(reversed(list(feature_importances.index[:plot_n]))))
+    ax.set_yticklabels(feature_importances['feature'][:plot_n], size = 12)
+    plt.xlabel('Normalized Importance', size = 15); plt.title(f'Feature Importances ({model_type})', size = 15) 
+    
+def plot_comparison_feature(column, df):
+    '''
+    Plots the distribution for a feature.
+    Args:feature (string) - feature to plot.
+        df (dataframe) - dataframe containing RESPONSE feature.
+    '''
+    responded = df[df['RESPONSE'] == 1]
+    not_responded = df[df['RESPONSE'] == 0]
+
+    sns.set(style="darkgrid")
+    fig, (ax1, ax2) = plt.subplots(figsize=(12,4), ncols=2)
+    sns.countplot(x=column, data=responded, ax=ax1, palette="Set2")
+    ax1.set_xlabel('Value')
+    ax1.set_title(f'Distribution for Responded = 1')
+    sns.countplot(x=column, data=not_responded, ax=ax2, palette="Set2")
+    ax2.set_xlabel('Value')
+    ax2.set_title(f'Distribution for Responded = 0')
+    fig.suptitle(f'Feature: {column}')
