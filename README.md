@@ -50,7 +50,9 @@ Provided by Arvato:
 
 Created by me:
 •utils.py : includes all the helper functions to perform data preprocessing and running the prediction models
+
 •ELBOW METHOD.ipynb: notebook where I used an elbow plot to select the number of ks to use in KMeans
+
 •MODEL TESTING.ipynb: notebook where I used a bayesian approach for hyperparamater tunning.
 
 
