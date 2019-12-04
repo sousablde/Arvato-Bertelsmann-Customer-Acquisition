@@ -40,6 +40,7 @@ This project provided by Arvato Financial Solutions was one of the available cap
 
 ## Files <a name="files"></a>
 Provided by Arvato:
+
 •Udacity_AZDIAS_Subset.csv: Demographics data for the general population of Germany; 891211 persons (rows) x 85 features (columns).
 
 •Udacity_CUSTOMERS_Subset.csv: Demographics data for customers of a mail-order company; 191652 persons (rows) x 85 features (columns).
@@ -49,6 +50,7 @@ Provided by Arvato:
 •AZDIAS_Feature_Summary.csv: Summary of feature attributes for demographics data; 85 features (rows) x 4 columns
 
 Created by me:
+
 •utils.py : includes all the helper functions to perform data preprocessing and running the prediction models
 
 •ELBOW METHOD.ipynb: notebook where I used an elbow plot to select the number of ks to use in KMeans
