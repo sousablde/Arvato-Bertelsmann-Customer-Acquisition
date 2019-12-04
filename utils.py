@@ -441,6 +441,7 @@ def fit_kmeans(data, centers):
     '''
     kmeans = KMeans(centers)
     model = kmeans.fit(data)
+    
     # SSE score for kmeans model 
     score = np.abs(model.score(data))
     return score
